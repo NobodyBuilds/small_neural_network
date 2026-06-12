@@ -17,7 +17,7 @@ nodes=18
 N=1000 # data sample count
 outputnode=3
 lr=0.0001 #learning rate
-epochs=1000
+epochs=10000
 batch_size=8192
 
 
@@ -26,12 +26,12 @@ epoch_times = []
 #load data from txt files
 #files names
 files = {
-    'density':     ('density.txt',     None),
-    'neardensity': ('neardensity.txt', None),
-    'ncount':      ('neighborcount.txt',      None),
-    'position':    ('position.txt',    ','),
-    'velocity':    ('velocity.txt',    ','),
-    'target':      ('target.txt',      ','),
+    'density':     ('data\\density.txt',     None),
+    'neardensity': ('data\\neardensity.txt', None),
+    'ncount':      ('data\\neighborcount.txt',      None),
+    'position':    ('data\\position.txt',    ','),
+    'velocity':    ('data\\velocity.txt',    ','),
+    'target':      ('data\\target.txt',      ','),
 }
 #scans for the maximun number of rows each files shares
 print("Checking data files for row counts...")
@@ -64,12 +64,12 @@ def load_cached(txt_path, npy_path, delimiter=None, max_rows=None):
 #loads data
 print("Loading data from files for {} rows...".format(N))
 
-density     = load_cached('density.txt',       'density.npy',      max_rows=N)
-neardensity = load_cached('neardensity.txt',   'neardensity.npy',  max_rows=N)
-ncount      = load_cached('neighborcount.txt', 'ncount.npy',       max_rows=N)
-pos         = load_cached('position.txt',      'position.npy',     ',', max_rows=N)
-vel         = load_cached('velocity.txt',      'velocity.npy',     ',', max_rows=N)
-target      = load_cached('target.txt',        'target.npy',       ',', max_rows=N)
+density     = load_cached('data\\density.txt',       'data\\density.npy',      max_rows=N)
+neardensity = load_cached('data\\neardensity.txt',   'data\\neardensity.npy',  max_rows=N)
+ncount      = load_cached('data\\neighborcount.txt', 'data\\ncount.npy',       max_rows=N)
+pos         = load_cached('data\\position.txt',      'data\\position.npy',     ',', max_rows=N)
+vel         = load_cached('data\\velocity.txt',      'data\\velocity.npy',     ',', max_rows=N)
+target      = load_cached('data\\target.txt',        'data\\target.npy',       ',', max_rows=N)
 
 print("Data loaded successfully.")
 
@@ -89,10 +89,10 @@ T_std  = target.std(axis=0)
 T_std[T_std == 0] = 1
 target = (target - T_mean) / T_std
 
-np.save('X_mean.npy', X_mean)
-np.save('X_std.npy',  X_std)
-np.save('T_mean.npy', T_mean)
-np.save('T_std.npy',  T_std)
+np.save('data\\X_mean.npy', X_mean)
+np.save('data\\X_std.npy',  X_std)
+np.save('data\\T_mean.npy', T_mean)
+np.save('data\\T_std.npy',  T_std)
 print("Norm stats saved.")
 
 X_t = torch.tensor(X, dtype=torch.float32).to(device)
@@ -118,6 +118,14 @@ model = nn.Sequential(
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 loss_fn   = nn.MSELoss()
 
+checkpoint_path = 'model.pth'
+if os.path.exists(checkpoint_path):
+    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    print("Resumed from checkpoint.")
+else:
+    print("No checkpoint found, starting fresh.")
+
+
 for e in range(epochs):
     epoch_start = time.time()
     epoch_loss  = 0
@@ -137,6 +145,12 @@ for e in range(epochs):
     avg_loss  = epoch_loss / len(loader)
 
     print(f"{e+1:4d}/{epochs}  loss: {avg_loss:.6f}  ETA: {remaining}")
+    if (e + 1) % 100 == 0:
+        torch.save(model.state_dict(), f'model_epoch{e+1}.pth')
+        print(f"  checkpoint saved → model_epoch{e+1}.pth")
+
+
+
 torch.save(model.state_dict(), 'model.pth')
 print("Model saved.")
 
