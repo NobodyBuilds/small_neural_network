@@ -1,0 +1,3 @@
+echo starting training...
+python net.py
+pause
